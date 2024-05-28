@@ -67,16 +67,14 @@ FixVirtualSemiGrandCanonicalMC::FixVirtualSemiGrandCanonicalMC(class LAMMPS_NS::
   seed = utils::inumeric(FLERR, arg[5], false, lmp);
   double temperature = utils::numeric(FLERR, arg[6], false, lmp);
 
-  if (nevery <= 0) error->all(FLERR, "Illegal fix atom/swap command");
-  if (ncycles < 0) error->all(FLERR, "Illegal fix atom/swap command");
-  if (seed <= 0) error->all(FLERR, "Illegal fix atom/swap command");
-  if (temperature <= 0.0) error->all(FLERR, "Illegal fix atom/swap command");
+  if (nevery <= 0) error->all(FLERR, "Illegal fix vsgcmc command");
+  if (ncycles < 0) error->all(FLERR, "Illegal fix vsgcmc command");
+  if (seed <= 0) error->all(FLERR, "Illegal fix vsgcmc command");
+  if (temperature <= 0.0) error->all(FLERR, "Illegal fix vsgcmc command");
 
   beta = 1.0 / (force->boltz * temperature);
 
-  memory->create(type_list, atom->ntypes, "atom/swap:type_list");
-  memory->create(mu, atom->ntypes + 1, "atom/swap:mu");
-  for (int i = 1; i <= atom->ntypes; i++) mu[i] = 0.0;
+  memory->create(type_list, atom->ntypes, "vsgcmc:type_list");
 
   // read options from end of input line
 
@@ -120,12 +118,10 @@ FixVirtualSemiGrandCanonicalMC::FixVirtualSemiGrandCanonicalMC(class LAMMPS_NS::
 FixVirtualSemiGrandCanonicalMC::~FixVirtualSemiGrandCanonicalMC()
 {
   memory->destroy(type_list);
-  memory->destroy(mu);
   memory->destroy(qtype);
   memory->destroy(sqrt_mass_ratio);
   memory->destroy(local_swap_iatom_list);
   memory->destroy(local_swap_jatom_list);
-  delete[] idregion;
   delete random_equal;
   delete random_unequal;
 }
@@ -136,7 +132,7 @@ FixVirtualSemiGrandCanonicalMC::~FixVirtualSemiGrandCanonicalMC()
 
 void FixVirtualSemiGrandCanonicalMC::options(int narg, char **arg)
 {
-  if (narg < 0) error->all(FLERR, "Illegal fix atom/swap command");
+  if (narg < 0) error->all(FLERR, "Illegal fix vsgcmc command");
 
   ke_flag = 1;
   semi_grand_flag = 0;
@@ -145,42 +141,18 @@ void FixVirtualSemiGrandCanonicalMC::options(int narg, char **arg)
 
   int iarg = 0;
   while (iarg < narg) {
-    if (strcmp(arg[iarg], "region") == 0) {
-      if (iarg + 2 > narg) error->all(FLERR, "Illegal fix atom/swap command");
-      region = domain->get_region_by_id(arg[iarg + 1]);
-      if (!region) error->all(FLERR, "Region {} for fix atom/swap does not exist", arg[iarg + 1]);
-      idregion = utils::strdup(arg[iarg + 1]);
-      iarg += 2;
-    } else if (strcmp(arg[iarg], "ke") == 0) {
-      if (iarg + 2 > narg) error->all(FLERR, "Illegal fix atom/swap command");
-      ke_flag = utils::logical(FLERR, arg[iarg + 1], false, lmp);
-      iarg += 2;
-    } else if (strcmp(arg[iarg], "semi-grand") == 0) {
-      if (iarg + 2 > narg) error->all(FLERR, "Illegal fix atom/swap command");
-      semi_grand_flag = utils::logical(FLERR, arg[iarg + 1], false, lmp);
-      iarg += 2;
-    } else if (strcmp(arg[iarg], "types") == 0) {
-      if (iarg + 3 > narg) error->all(FLERR, "Illegal fix atom/swap command");
+    if (strcmp(arg[iarg], "types") == 0) {
+      if (iarg + 3 > narg) error->all(FLERR, "Illegal fix vsgcmc command");
       iarg++;
       while (iarg < narg) {
         if (isalpha(arg[iarg][0])) break;
-        if (nswaptypes >= atom->ntypes) error->all(FLERR, "Illegal fix atom/swap command");
+        if (nswaptypes >= atom->ntypes) error->all(FLERR, "Illegal fix vsgcmc command");
         type_list[nswaptypes] = utils::numeric(FLERR, arg[iarg], false, lmp);
         nswaptypes++;
         iarg++;
       }
-    } else if (strcmp(arg[iarg], "mu") == 0) {
-      if (iarg + 2 > narg) error->all(FLERR, "Illegal fix atom/swap command");
-      iarg++;
-      while (iarg < narg) {
-        if (isalpha(arg[iarg][0])) break;
-        nmutypes++;
-        if (nmutypes > atom->ntypes) error->all(FLERR, "Illegal fix atom/swap command");
-        mu[nmutypes] = utils::numeric(FLERR, arg[iarg], false, lmp);
-        iarg++;
-      }
     } else
-      error->all(FLERR, "Illegal fix atom/swap command");
+      error->all(FLERR, "Illegal fix vsgcmc command");
   }
 }
 
@@ -197,44 +169,27 @@ int FixVirtualSemiGrandCanonicalMC::setmask()
 
 void FixVirtualSemiGrandCanonicalMC::init()
 {
-  if (!atom->mass) error->all(FLERR, "Fix atom/swap requires per atom type masses");
+  if (!atom->mass) error->all(FLERR, "Fix vsgcmc requires per atom type masses");
   if (atom->rmass_flag && (comm->me == 0))
-    error->warning(FLERR, "Fix atom/swap will use per-type masses for velocity rescaling");
+    error->warning(FLERR, "Fix vsgcmc will use per-type masses for velocity rescaling");
 
   c_pe = modify->get_compute_by_id("thermo_pe");
 
   int *type = atom->type;
 
-  if (nswaptypes < 2) error->all(FLERR, "Must specify at least 2 types in fix atom/swap command");
-
-  if (semi_grand_flag) {
-    if (nswaptypes != nmutypes)
-      error->all(FLERR, "Need nswaptypes mu values in fix atom/swap command");
-  } else {
-    if (nswaptypes != 2)
-      error->all(FLERR, "Only 2 types allowed when not using semi-grand in fix atom/swap command");
-    if (nmutypes != 0)
-      error->all(FLERR, "Mu not allowed when not using semi-grand in fix atom/swap command");
-  }
-
-  // set index and check validity of region
-
-  if (idregion) {
-    region = domain->get_region_by_id(idregion);
-    if (!region) error->all(FLERR, "Region {} for fix setforce does not exist", idregion);
-  }
+  if (nswaptypes < 2) error->all(FLERR, "Must specify at least 2 types in fix vsgcmc command");
 
   for (int iswaptype = 0; iswaptype < nswaptypes; iswaptype++)
     if (type_list[iswaptype] <= 0 || type_list[iswaptype] > atom->ntypes)
-      error->all(FLERR, "Invalid atom type in fix atom/swap command");
+      error->all(FLERR, "Invalid atom type in fix vsgcmc command");
 
   // this is only required for non-semi-grand
   // in which case, nswaptypes = 2
 
-  if (atom->q_flag && !semi_grand_flag) {
+  if (atom->q_flag) {
     double qmax, qmin;
     int firstall, first;
-    memory->create(qtype, nswaptypes, "atom/swap:qtype");
+    memory->create(qtype, nswaptypes, "vsgcmc:qtype");
     for (int iswaptype = 0; iswaptype < nswaptypes; iswaptype++) {
       first = 1;
       for (int i = 0; i < atom->nlocal; i++) {
@@ -260,7 +215,7 @@ void FixVirtualSemiGrandCanonicalMC::init()
     }
   }
 
-  memory->create(sqrt_mass_ratio, atom->ntypes + 1, atom->ntypes + 1, "atom/swap:sqrt_mass_ratio");
+  memory->create(sqrt_mass_ratio, atom->ntypes + 1, atom->ntypes + 1, "vsgcmc:sqrt_mass_ratio");
   for (int itype = 1; itype <= atom->ntypes; itype++)
     for (int jtype = 1; jtype <= atom->ntypes; jtype++)
       sqrt_mass_ratio[itype][jtype] = sqrt(atom->mass[itype] / atom->mass[jtype]);
@@ -290,7 +245,7 @@ void FixVirtualSemiGrandCanonicalMC::init()
     int flagall;
     MPI_Allreduce(&flag, &flagall, 1, MPI_INT, MPI_SUM, world);
 
-    if (flagall) error->all(FLERR, "Cannot do atom/swap on atoms in atom_modify first group");
+    if (flagall) error->all(FLERR, "Cannot do vsgcmc on atoms in atom_modify first group");
   }
 }
 
@@ -817,7 +772,7 @@ void FixVirtualSemiGrandCanonicalMC::restart(char *buf)
 
   bigint ntimestep_restart = (bigint) ubuf(list[n++]).i;
   if (ntimestep_restart != update->ntimestep)
-    error->all(FLERR, "Must not reset timestep when restarting fix atom/swap");
+    error->all(FLERR, "Must not reset timestep when restarting fix vsgcmc");
 }
 
 /* ----------------------------------------------------------------------
