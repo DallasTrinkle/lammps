@@ -9,7 +9,18 @@
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
-------------------------------------------------------------------------- */
+-------------------------------------------------------------------------
+
+ Implementation of the semigrand canonical Widom method, from
+ J. Anwar, C. Leitold and B. Peters, J. Chem. Phys. 152, 144109 (2020)
+ doi: 10.1063/5.0003224
+
+ It calculates the average of exp(-beta*dE(A-,B+)) during a simulation;
+ this quantity can be then related to the difference in the excess
+ chemical potential between species B and A.
+
+ 2024 June: Dallas R. Trinkle
+ */
 
 #ifdef FIX_CLASS
 // clang-format off
@@ -53,8 +64,15 @@ class FixVirtualSemiGrandCanonicalMC : public Fix {
 
   int mc_active;              // 1 during MC trials, otherwise 0
 
-  int nswaptypes, nmutypes;
+  int nswaptypes;
   int *type_list;
+
+  int nchempot;
+  int **swapindex;
+  int **swapchem;
+  int **swapsign;
+  int **chemdifferences;
+
   double *mu;
 
   double nswap_attempts;

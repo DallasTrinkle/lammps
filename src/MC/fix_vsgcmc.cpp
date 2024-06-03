@@ -134,10 +134,7 @@ void FixVirtualSemiGrandCanonicalMC::options(int narg, char **arg)
 {
   if (narg < 0) error->all(FLERR, "Illegal fix vsgcmc command");
 
-  ke_flag = 1;
-  semi_grand_flag = 0;
   nswaptypes = 0;
-  nmutypes = 0;
 
   int iarg = 0;
   while (iarg < narg) {
@@ -182,6 +179,36 @@ void FixVirtualSemiGrandCanonicalMC::init()
   for (int iswaptype = 0; iswaptype < nswaptypes; iswaptype++)
     if (type_list[iswaptype] <= 0 || type_list[iswaptype] > atom->ntypes)
       error->all(FLERR, "Invalid atom type in fix vsgcmc command");
+
+  // now we need to set up some helper arrays to keep track of what we swap, etc.
+  // our chemical potential differences are:
+  // type[1]-type[0], type[2]-type[0], ..., type[nswap-1]-type[0], type[2]-type[1], ...
+  // ... type[nswap-1]-type[nswap-2]
+  // For type[1]-type[0], we need exp(-beta*dE(0->1)) and exp(+beta*dE(1->0))
+  // swapchem[i]: list of indices to calculate swaps = (0,1,...,i-1,i+1,...,N-1)
+  // swapindex[i]: list of which chemical potential difference that is
+  // swapsign[i]: list of +-1 corresponding to the sign.
+  // chemdifferences[d]: [0] is the + and [1] is the -
+  nchempot = (nswaptypes*(nswaptypes-1))/2;
+  memory->create(swapchem, nswaptypes, nswaptypes-1, "vsgcmc:swapchem");
+  memory->create(swapindex, nswaptypes, nswaptypes-1, "vsgcmc:swapindex");
+  memory->create(swapsign, nswaptypes, nswaptypes-1, "vsgcmc:swapsign");
+  memory->create(chemdifferences, nchempot, 2, "vsgcmc:chemdifferences");
+
+  int nchem = 0;
+  for (int i=0; i<nswaptypes; ++i) {
+      for (int j=i+1; j<nswaptypes; ++j) {
+          chemdifferences[nchem][0] = j;
+          chemdifferences[nchem][1] = i;
+          swapchem[i][j-1] = j;
+          swapindex[i][j-1] = nchem;
+          swapsign[i][j-1] = -1;
+          swapchem[j][i] = i;
+          swapindex[j][i] = nchem;
+          swapsign[j][i] = +1;
+          nchem++;
+      }
+  }
 
   // this is only required for non-semi-grand
   // in which case, nswaptypes = 2
