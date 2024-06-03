@@ -84,7 +84,6 @@ class FixVirtualSemiGrandCanonicalMC : public Fix {
   double beta;
   double *qtype;
   double energy_stored;
-  double **sqrt_mass_ratio;
   int *local_swap_iatom_list;
   int *local_swap_jatom_list;
   int *local_swap_atom_list;

@@ -119,9 +119,12 @@ FixVirtualSemiGrandCanonicalMC::~FixVirtualSemiGrandCanonicalMC()
 {
   memory->destroy(type_list);
   memory->destroy(qtype);
-  memory->destroy(sqrt_mass_ratio);
   memory->destroy(local_swap_iatom_list);
   memory->destroy(local_swap_jatom_list);
+  memory->destroy(chemdifferences);
+  memory->destroy(swapchem);
+  memory->destroy(swapindex);
+  memory->destroy(swapsign);
   delete random_equal;
   delete random_unequal;
 }
@@ -241,11 +244,6 @@ void FixVirtualSemiGrandCanonicalMC::init()
       if (qmax != qmin) error->all(FLERR, "All atoms of a swapped type must have same charge.");
     }
   }
-
-  memory->create(sqrt_mass_ratio, atom->ntypes + 1, atom->ntypes + 1, "vsgcmc:sqrt_mass_ratio");
-  for (int itype = 1; itype <= atom->ntypes; itype++)
-    for (int jtype = 1; jtype <= atom->ntypes; jtype++)
-      sqrt_mass_ratio[itype][jtype] = sqrt(atom->mass[itype] / atom->mass[jtype]);
 
   // check to see if itype and jtype cutoffs are the same
   // if not, reneighboring will be needed between swaps
@@ -387,13 +385,13 @@ int FixVirtualSemiGrandCanonicalMC::attempt_semi_grand()
   if (success_all) {
     update_semi_grand_atoms_list();
     energy_stored = energy_after;
-    if (ke_flag) {
-      if (i >= 0) {
-        atom->v[i][0] *= sqrt_mass_ratio[itype][jtype];
-        atom->v[i][1] *= sqrt_mass_ratio[itype][jtype];
-        atom->v[i][2] *= sqrt_mass_ratio[itype][jtype];
-      }
-    }
+//    if (ke_flag) {
+//      if (i >= 0) {
+//        atom->v[i][0] *= sqrt_mass_ratio[itype][jtype];
+//        atom->v[i][1] *= sqrt_mass_ratio[itype][jtype];
+//        atom->v[i][2] *= sqrt_mass_ratio[itype][jtype];
+//      }
+//    }
     return 1;
   }
 
@@ -463,18 +461,18 @@ int FixVirtualSemiGrandCanonicalMC::attempt_swap()
 
   if (random_equal->uniform() < exp(beta * (energy_before - energy_after))) {
     update_swap_atoms_list();
-    if (ke_flag) {
-      if (i >= 0) {
-        atom->v[i][0] *= sqrt_mass_ratio[itype][jtype];
-        atom->v[i][1] *= sqrt_mass_ratio[itype][jtype];
-        atom->v[i][2] *= sqrt_mass_ratio[itype][jtype];
-      }
-      if (j >= 0) {
-        atom->v[j][0] *= sqrt_mass_ratio[jtype][itype];
-        atom->v[j][1] *= sqrt_mass_ratio[jtype][itype];
-        atom->v[j][2] *= sqrt_mass_ratio[jtype][itype];
-      }
-    }
+//    if (ke_flag) {
+//      if (i >= 0) {
+//        atom->v[i][0] *= sqrt_mass_ratio[itype][jtype];
+//        atom->v[i][1] *= sqrt_mass_ratio[itype][jtype];
+//        atom->v[i][2] *= sqrt_mass_ratio[itype][jtype];
+//      }
+//      if (j >= 0) {
+//        atom->v[j][0] *= sqrt_mass_ratio[jtype][itype];
+//        atom->v[j][1] *= sqrt_mass_ratio[jtype][itype];
+//        atom->v[j][2] *= sqrt_mass_ratio[jtype][itype];
+//      }
+//    }
     energy_stored = energy_after;
     return 1;
   }
