@@ -319,7 +319,7 @@ void FixVirtualSemiGrandCanonicalMC::pre_exchange()
 
 void FixVirtualSemiGrandCanonicalMC::virtual_semi_grand(int iglobal)
 {
-  if (nswap == 0) return 0;
+  if (nswap == 0) return;
 
   // pre-swap energy
 
@@ -371,8 +371,6 @@ void FixVirtualSemiGrandCanonicalMC::virtual_semi_grand(int iglobal)
 
   if (i >= 0) atom->type[i] = itype;
   if (force->kspace) force->kspace->qsum_qsq();
-
-  return 0;
 }
 
 /* ----------------------------------------------------------------------
