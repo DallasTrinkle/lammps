@@ -12,6 +12,8 @@
 -------------------------------------------------------------------------
 
  Implementation of the semigrand canonical Widom method, from
+ P. Sindzingre, G. Ciccotti, C. Massobrio, and D. Frenkel,
+ Chem. Phys. Lett. 136, 35 (1987); applied in
  J. Anwar, C. Leitold and B. Peters, J. Chem. Phys. 152, 144109 (2020)
  doi: 10.1063/5.0003224
 
@@ -70,7 +72,6 @@ class FixVirtualSemiGrandCanonicalMC : public Fix {
   int nchempot;
   int **swapindex;
   int **swapchem;
-  int **swapsign;
   int **chemdifferences;
 
   double *mu;
