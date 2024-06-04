@@ -206,26 +206,22 @@ void FixVirtualSemiGrandCanonicalMC::init()
 
   int nchem = 0;
   for (int i=0; i<nswaptypes; ++i) {
-      for (int j=i+1; j<nswaptypes; ++j) {
-          chemdifferences[nchem][0] = j;
-          chemdifferences[nchem][1] = i;
-          swapchem[i][j-1] = j;
-          swapindex[i][j-1] = nchem;
-          nchem++;
-          chemdifferences[nchem][0] = i;
-          chemdifferences[nchem][1] = j;
-          swapchem[j][i] = i;
-          swapindex[j][i] = nchem;
-          nchem++;
-      }
+    for (int j=i+1; j<nswaptypes; ++j) {
+      chemdifferences[nchem][0] = j;
+      chemdifferences[nchem][1] = i;
+      swapchem[i][j-1] = j;
+      swapindex[i][j-1] = nchem;
+      nchem++;
+      chemdifferences[nchem][0] = i;
+      chemdifferences[nchem][1] = j;
+      swapchem[j][i] = i;
+      swapindex[j][i] = nchem;
+      nchem++;
+    }
   }
 
   memory->create(nattempt, nchempot, "vsgcmc:nattempt");
   memory->create(chempotave, nchempot, "vsgcmc:chempotave");
-  for (int i=0; i<nchempot; ++i) {
-      nattempt[i] = 0;
-      chempotave[i] = 0.;
-  }
 
   // this is only required for non-semi-grand
   // in which case, nswaptypes = 2
@@ -299,6 +295,10 @@ void FixVirtualSemiGrandCanonicalMC::pre_exchange()
   if (next_reneighbor != update->ntimestep) return;
 
   mc_active = 1;
+  for (int i=0; i<nchempot; ++i) {
+    nattempt[i] = 0;
+    chempotave[i] = 0.;
+  }
 
   // ensure current system is ready to compute energy
 
@@ -364,32 +364,32 @@ void FixVirtualSemiGrandCanonicalMC::virtual_semi_grand()
   // else communicate ghost atoms
   // call to comm->exchange() is a no-op but clears ghost atoms
   for (int j_ind=0; j_ind<nswaptypes-1; ++j_ind) {
-      if (i >= 0) {
-          jswaptype = type_list[swapchem[i_ind][j_ind]];
-          nchem = swapindex[i_ind][j_ind];
-          atom->type[i] = jswaptype;
-      }
-      if (unequal_cutoffs) {
-          if (domain->triclinic) domain->x2lamda(atom->nlocal);
-          comm->exchange();
-          comm->borders();
-          if (domain->triclinic) domain->lamda2x(atom->nlocal + atom->nghost);
-          if (modify->n_pre_neighbor) modify->pre_neighbor();
-          neighbor->build(1);
-      } else {
-          comm->forward_comm(this);
-      }
+    if (i >= 0) {
+      jswaptype = type_list[swapchem[i_ind][j_ind]];
+      nchem = swapindex[i_ind][j_ind];
+      atom->type[i] = jswaptype;
+    }
+    if (unequal_cutoffs) {
+      if (domain->triclinic) domain->x2lamda(atom->nlocal);
+      comm->exchange();
+      comm->borders();
+      if (domain->triclinic) domain->lamda2x(atom->nlocal + atom->nghost);
+      if (modify->n_pre_neighbor) modify->pre_neighbor();
+      neighbor->build(1);
+    } else {
+      comm->forward_comm(this);
+    }
 
-      // post-swap energy
+    // post-swap energy
 
-      if (force->kspace) force->kspace->qsum_qsq();
-      double energy_after = energy_full();
+    if (force->kspace) force->kspace->qsum_qsq();
+    double energy_after = energy_full();
 
-      // now to store in the appropriate average:
-      nattempt[nchem]++;
-      double incr_chem_pot = exp(beta * (energy_before - energy_after)) - chempotave[nchem];
-      chempotave[nchem] += incr_chem_pot/nattempt[nchem];
-  }
+    // now to store in the appropriate average:
+    nattempt[nchem]++;
+    double incr_chem_pot = exp(beta * (energy_before - energy_after)) - chempotave[nchem];
+    chempotave[nchem] += incr_chem_pot/nattempt[nchem];
+}
 
   // restore the swapped atom
   // do not need to re-call comm->borders() and rebuild neighbor list
@@ -553,8 +553,7 @@ void FixVirtualSemiGrandCanonicalMC::unpack_forward_comm(int n, int first, doubl
 
 double FixVirtualSemiGrandCanonicalMC::compute_vector(int n)
 {
-  if (n == 0) return nswap_attempts;
-  if (n == 1) return nswap_successes;
+  if ((n >= 0) && (n < nchempot)) return chempotave[n];
   return 0.0;
 }
 
