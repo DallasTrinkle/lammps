@@ -72,6 +72,9 @@ class FixVirtualSemiGrandCanonicalMC : public Fix {
   int **swapchem;
   int **chemdifferences;
 
+  int *nattempt;
+  double *chempotave;
+
   bool unequal_cutoffs;
 
   int atom_swap_nmax;

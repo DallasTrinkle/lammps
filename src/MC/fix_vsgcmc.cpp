@@ -123,6 +123,8 @@ FixVirtualSemiGrandCanonicalMC::~FixVirtualSemiGrandCanonicalMC()
   memory->destroy(chemdifferences);
   memory->destroy(swapchem);
   memory->destroy(swapindex);
+  memory->destroy(nattempt);
+  memory->destroy(chempotave);
   delete random_equal;
   delete random_unequal;
 }
@@ -181,8 +183,8 @@ void FixVirtualSemiGrandCanonicalMC::init()
     if (type_list[iswaptype] <= 0 || type_list[iswaptype] > atom->ntypes)
       error->all(FLERR, "Invalid atom type in fix vsgcmc command");
 
-  memory->create(list_type, atoms->ntypes+1, "vsgmcm:list_type");
-  for (int i=0; i<=atoms->ntypes; ++i)
+  memory->create(list_type, atom->ntypes+1, "vsgmcm:list_type");
+  for (int i=0; i<=atom->ntypes; ++i)
       list_type[i] = 0;
   for (int i=0; i<nswaptypes; ++i) {
       list_type[type_list[i]] = i;
@@ -216,6 +218,13 @@ void FixVirtualSemiGrandCanonicalMC::init()
           swapindex[j][i] = nchem;
           nchem++;
       }
+  }
+
+  memory->create(nattempt, nchempot, "vsgcmc:nattempt");
+  memory->create(chempotave, nchempot, "vsgcmc:chempotave");
+  for (int i=0; i<nchempot; ++i) {
+      nattempt[i] = 0;
+      chempotave[i] = 0.;
   }
 
   // this is only required for non-semi-grand
@@ -377,8 +386,9 @@ void FixVirtualSemiGrandCanonicalMC::virtual_semi_grand()
       double energy_after = energy_full();
 
       // now to store in the appropriate average:
-
-      exp(beta * (energy_before - energy_after));
+      nattempt[nchem]++;
+      double incr_chem_pot = exp(beta * (energy_before - energy_after)) - chempotave[nchem];
+      chempotave[nchem] += incr_chem_pot/nattempt[nchem];
   }
 
   // restore the swapped atom
