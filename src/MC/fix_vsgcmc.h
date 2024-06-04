@@ -65,6 +65,7 @@ class FixVirtualSemiGrandCanonicalMC : public Fix {
 
   int nswaptypes;
   int *type_list;
+  int *list_type; // inverse mapping of type_list
 
   int nchempot;
   int **swapindex;

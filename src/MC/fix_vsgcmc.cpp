@@ -118,6 +118,7 @@ FixVirtualSemiGrandCanonicalMC::FixVirtualSemiGrandCanonicalMC(class LAMMPS_NS::
 FixVirtualSemiGrandCanonicalMC::~FixVirtualSemiGrandCanonicalMC()
 {
   memory->destroy(type_list);
+  memory->destroy(list_type);
   memory->destroy(qtype);
   memory->destroy(chemdifferences);
   memory->destroy(swapchem);
@@ -179,6 +180,13 @@ void FixVirtualSemiGrandCanonicalMC::init()
   for (int iswaptype = 0; iswaptype < nswaptypes; iswaptype++)
     if (type_list[iswaptype] <= 0 || type_list[iswaptype] > atom->ntypes)
       error->all(FLERR, "Invalid atom type in fix vsgcmc command");
+
+  memory->create(list_type, atoms->ntypes+1, "vsgmcm:list_type");
+  for (int i=0; i<=atoms->ntypes; ++i)
+      list_type[i] = 0;
+  for (int i=0; i<nswaptypes; ++i) {
+      list_type[type_list[i]] = i;
+  }
 
   // now we need to set up some helper arrays to keep track of what we swap, etc.
   // our chemical potential differences are:
@@ -324,66 +332,55 @@ void FixVirtualSemiGrandCanonicalMC::virtual_semi_grand()
 
   double energy_before = energy_stored;
 
-  // pick a random atom and perform swap
+  // pick a random atom and perform all transmutations on it
 
-  int itype, jtype, jswaptype;
+  int itype, jtype, jswaptype, nchem, i_ind;
   int i = pick_semi_grand_atom();
   if (i >= 0) {
-    jswaptype = static_cast<int>(nswaptypes * random_unequal->uniform());
-    jtype = type_list[jswaptype];
-    itype = atom->type[i];
-    while (itype == jtype) {
-      jswaptype = static_cast<int>(nswaptypes * random_unequal->uniform());
-      jtype = type_list[jswaptype];
-    }
-    atom->type[i] = jtype;
+      itype = atom->type[i];
+      i_ind = list_type[itype];
   }
+//  if (i >= 0) {
+//    jswaptype = static_cast<int>(nswaptypes * random_unequal->uniform());
+//    jtype = type_list[jswaptype];
+//    itype = atom->type[i];
+//    while (itype == jtype) {
+//      jswaptype = static_cast<int>(nswaptypes * random_unequal->uniform());
+//      jtype = type_list[jswaptype];
+//    }
+//    atom->type[i] = jtype;
+//  }
 
   // if unequal_cutoffs, call comm->borders() and rebuild neighbor list
   // else communicate ghost atoms
   // call to comm->exchange() is a no-op but clears ghost atoms
+  for (int j_ind=0; j_ind<nswaptypes-1; ++j_ind) {
+      if (i >= 0) {
+          jswaptype = type_list[swapchem[i_ind][j_ind]];
+          nchem = swapindex[i_ind][j_ind];
+          atom->type[i] = jswaptype;
+      }
+      if (unequal_cutoffs) {
+          if (domain->triclinic) domain->x2lamda(atom->nlocal);
+          comm->exchange();
+          comm->borders();
+          if (domain->triclinic) domain->lamda2x(atom->nlocal + atom->nghost);
+          if (modify->n_pre_neighbor) modify->pre_neighbor();
+          neighbor->build(1);
+      } else {
+          comm->forward_comm(this);
+      }
 
-  if (unequal_cutoffs) {
-    if (domain->triclinic) domain->x2lamda(atom->nlocal);
-    comm->exchange();
-    comm->borders();
-    if (domain->triclinic) domain->lamda2x(atom->nlocal + atom->nghost);
-    if (modify->n_pre_neighbor) modify->pre_neighbor();
-    neighbor->build(1);
-  } else {
-    comm->forward_comm(this);
+      // post-swap energy
+
+      if (force->kspace) force->kspace->qsum_qsq();
+      double energy_after = energy_full();
+
+      // now to store in the appropriate average:
+
+      exp(beta * (energy_before - energy_after));
   }
 
-  // post-swap energy
-
-  if (force->kspace) force->kspace->qsum_qsq();
-  double energy_after = energy_full();
-
-  int success = 0;
-  if (i >= 0)
-    if (random_unequal->uniform() <
-        exp(beta * (energy_before - energy_after + mu[jtype] - mu[itype])))
-      success = 1;
-
-  int success_all = 0;
-  MPI_Allreduce(&success, &success_all, 1, MPI_INT, MPI_MAX, world);
-
-  // swap accepted, return 1
-
-  if (success_all) {
-    update_atoms_list();
-    energy_stored = energy_after;
-//    if (ke_flag) {
-//      if (i >= 0) {
-//        atom->v[i][0] *= sqrt_mass_ratio[itype][jtype];
-//        atom->v[i][1] *= sqrt_mass_ratio[itype][jtype];
-//        atom->v[i][2] *= sqrt_mass_ratio[itype][jtype];
-//      }
-//    }
-    return 1;
-  }
-
-  // swap not accepted, return 0
   // restore the swapped atom
   // do not need to re-call comm->borders() and rebuild neighbor list
   //   since will be done on next cycle or in Verlet when this fix finishes
