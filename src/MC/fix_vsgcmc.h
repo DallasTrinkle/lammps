@@ -83,15 +83,12 @@ class FixVirtualSemiGrandCanonicalMC : public Fix {
   double energy_stored;
   int *local_swap_atom_list;
 
-  class RanPark *random_equal;
-  class RanPark *random_unequal;
-
   class Compute *c_pe;
 
   void options(int, char **);
-  void virtual_semi_grand();
+  void virtual_semi_grand(int);
   double energy_full();
-  int pick_semi_grand_atom();
+  int pick_semi_grand_atom(int);
   void update_atoms_list();
 };
 

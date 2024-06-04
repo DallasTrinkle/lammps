@@ -34,7 +34,7 @@
 #include "modify.h"
 #include "neighbor.h"
 #include "pair.h"
-#include "random_park.h"
+// #include "random_park.h"
 #include "region.h"
 #include "update.h"
 
@@ -50,10 +50,9 @@ using namespace FixConst;
 
 FixVirtualSemiGrandCanonicalMC::FixVirtualSemiGrandCanonicalMC(class LAMMPS_NS::LAMMPS *, int narg, char **arg) :
         Fix(lmp, narg, arg), region(nullptr), idregion(nullptr), type_list(nullptr),
-        qtype(nullptr), local_swap_atom_list(nullptr), random_equal(nullptr),
-        random_unequal(nullptr), c_pe(nullptr)
+        qtype(nullptr), local_swap_atom_list(nullptr), c_pe(nullptr)
 {
-  if (narg < 10) error->all(FLERR, "Illegal fix vsgcmc command");
+  if (narg < 8) error->all(FLERR, "Illegal fix vsgcmc command");
 
   dynamic_group_allow = 1;
 
@@ -67,9 +66,9 @@ FixVirtualSemiGrandCanonicalMC::FixVirtualSemiGrandCanonicalMC(class LAMMPS_NS::
   // required args
 
   nevery = utils::inumeric(FLERR, arg[3], false, lmp);
-  ncycles = utils::inumeric(FLERR, arg[4], false, lmp);
-  seed = utils::inumeric(FLERR, arg[5], false, lmp);
-  double temperature = utils::numeric(FLERR, arg[6], false, lmp);
+//  ncycles = utils::inumeric(FLERR, arg[4], false, lmp);
+//  seed = utils::inumeric(FLERR, arg[5], false, lmp);
+  double temperature = utils::numeric(FLERR, arg[4], false, lmp);
 
   if (nevery <= 0) error->all(FLERR, "Illegal fix vsgcmc command");
   if (ncycles < 0) error->all(FLERR, "Illegal fix vsgcmc command");
@@ -82,15 +81,7 @@ FixVirtualSemiGrandCanonicalMC::FixVirtualSemiGrandCanonicalMC(class LAMMPS_NS::
 
   // read options from end of input line
 
-  options(narg - 7, &arg[7]);
-
-  // random number generator, same for all procs
-
-  random_equal = new RanPark(lmp, seed);
-
-  // random number generator, not the same for all procs
-
-  random_unequal = new RanPark(lmp, seed);
+  options(narg - 5, &arg[5]);
 
   // set up reneighboring
 
@@ -100,7 +91,6 @@ FixVirtualSemiGrandCanonicalMC::FixVirtualSemiGrandCanonicalMC(class LAMMPS_NS::
   // zero out counters
 
   mc_active = 0;
-
 
   atom_swap_nmax = 0;
   local_swap_atom_list = nullptr;
@@ -125,8 +115,6 @@ FixVirtualSemiGrandCanonicalMC::~FixVirtualSemiGrandCanonicalMC()
   memory->destroy(swapindex);
   memory->destroy(nattempt);
   memory->destroy(chempotave);
-  delete random_equal;
-  delete random_unequal;
 }
 
 /* ----------------------------------------------------------------------
@@ -315,10 +303,11 @@ void FixVirtualSemiGrandCanonicalMC::pre_exchange()
 
   energy_stored = energy_full();
 
-  // attempt Ncycle atom swaps
+  // attempt all atom swaps
 
   update_atoms_list();
-  for (int i = 0; i < ncycles; i++) virtual_semi_grand();
+  // run through all of the atoms!
+  for (int i = 0; i < nswap; i++) virtual_semi_grand(i);
 
   // update time counter
   next_reneighbor = update->ntimestep + nevery;
@@ -333,7 +322,7 @@ void FixVirtualSemiGrandCanonicalMC::pre_exchange()
    NOTE: atom charges are assumed equal and so are not updated
 ------------------------------------------------------------------------- */
 
-void FixVirtualSemiGrandCanonicalMC::virtual_semi_grand()
+void FixVirtualSemiGrandCanonicalMC::virtual_semi_grand(int iglobal)
 {
   if (nswap == 0) return 0;
 
@@ -344,21 +333,11 @@ void FixVirtualSemiGrandCanonicalMC::virtual_semi_grand()
   // pick a random atom and perform all transmutations on it
 
   int itype, jtype, jswaptype, nchem, i_ind;
-  int i = pick_semi_grand_atom();
+  int i = pick_semi_grand_atom(iglobal);
   if (i >= 0) {
       itype = atom->type[i];
       i_ind = list_type[itype];
   }
-//  if (i >= 0) {
-//    jswaptype = static_cast<int>(nswaptypes * random_unequal->uniform());
-//    jtype = type_list[jswaptype];
-//    itype = atom->type[i];
-//    while (itype == jtype) {
-//      jswaptype = static_cast<int>(nswaptypes * random_unequal->uniform());
-//      jtype = type_list[jswaptype];
-//    }
-//    atom->type[i] = jtype;
-//  }
 
   // if unequal_cutoffs, call comm->borders() and rebuild neighbor list
   // else communicate ghost atoms
@@ -434,10 +413,10 @@ double FixVirtualSemiGrandCanonicalMC::energy_full()
 /* ----------------------------------------------------------------------
 ------------------------------------------------------------------------- */
 
-int FixVirtualSemiGrandCanonicalMC::pick_semi_grand_atom()
+int FixVirtualSemiGrandCanonicalMC::pick_semi_grand_atom(int iwhichglobal)
 {
   int i = -1;
-  int iwhichglobal = static_cast<int>(nswap * random_equal->uniform());
+  // int iwhichglobal = static_cast<int>(nswap * random_equal->uniform());
   if ((iwhichglobal >= nswap_before) && (iwhichglobal < nswap_before + nswap_local)) {
     int iwhichlocal = iwhichglobal - nswap_before;
     i = local_swap_atom_list[iwhichlocal];
