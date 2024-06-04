@@ -431,7 +431,7 @@ void FixVirtualSemiGrandCanonicalMC::update_atoms_list()
     memory->sfree(local_swap_atom_list);
     atom_swap_nmax = atom->nmax;
     local_swap_atom_list =
-        (int *) memory->smalloc(atom_swap_nmax * sizeof(int), "MCSWAP:local_swap_atom_list");
+        (int *) memory->smalloc(atom_swap_nmax * sizeof(int), "vsgcmc:local_swap_atom_list");
   }
 
   nswap_local = 0;
