@@ -554,11 +554,7 @@ void FixVirtualSemiGrandCanonicalMC::write_restart(FILE *fp)
 {
   int n = 0;
   double list[6];
-  list[n++] = random_equal->state();
-  list[n++] = random_unequal->state();
   list[n++] = ubuf(next_reneighbor).d;
-  list[n++] = nswap_attempts;
-  list[n++] = nswap_successes;
   list[n++] = ubuf(update->ntimestep).d;
 
   if (comm->me == 0) {
@@ -576,12 +572,6 @@ void FixVirtualSemiGrandCanonicalMC::restart(char *buf)
 {
   int n = 0;
   auto list = (double *) buf;
-
-  seed = static_cast<int>(list[n++]);
-  random_equal->reset(seed);
-
-  seed = static_cast<int>(list[n++]);
-  random_unequal->reset(seed);
 
   next_reneighbor = (bigint) ubuf(list[n++]).i;
 
