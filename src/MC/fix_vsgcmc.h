@@ -61,8 +61,6 @@ class FixVirtualSemiGrandCanonicalMC : public Fix {
   class Region *region;                // swap region
   char *idregion;                      // swap region id
 
-  int mc_active;              // 1 during MC trials, otherwise 0
-
   int nswaptypes;
   int *type_list;
   int *list_type; // inverse mapping of type_list

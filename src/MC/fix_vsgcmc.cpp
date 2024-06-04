@@ -90,8 +90,6 @@ FixVirtualSemiGrandCanonicalMC::FixVirtualSemiGrandCanonicalMC(class LAMMPS_NS::
 
   // zero out counters
 
-  mc_active = 0;
-
   atom_swap_nmax = 0;
   local_swap_atom_list = nullptr;
 
@@ -282,7 +280,6 @@ void FixVirtualSemiGrandCanonicalMC::pre_exchange()
 
   if (next_reneighbor != update->ntimestep) return;
 
-  mc_active = 1;
   for (int i=0; i<nchempot; ++i) {
     nattempt[i] = 0;
     chempotave[i] = 0.;
@@ -311,8 +308,6 @@ void FixVirtualSemiGrandCanonicalMC::pre_exchange()
 
   // update time counter
   next_reneighbor = update->ntimestep + nevery;
-
-  mc_active = 0;
 }
 
 /* ----------------------------------------------------------------------
@@ -578,19 +573,4 @@ void FixVirtualSemiGrandCanonicalMC::restart(char *buf)
   bigint ntimestep_restart = (bigint) ubuf(list[n++]).i;
   if (ntimestep_restart != update->ntimestep)
     error->all(FLERR, "Must not reset timestep when restarting fix vsgcmc");
-}
-
-/* ----------------------------------------------------------------------
-   extract variable which stores whether MC is active or not
-     active = MC moves are taking place
-     not active = normal MD is taking place
-------------------------------------------------------------------------- */
-
-void *FixVirtualSemiGrandCanonicalMC::extract(const char *name, int &dim)
-{
-  if (strcmp(name,"mc_active") == 0) {
-    dim = 0;
-    return (void *) &mc_active;
-  }
-  return nullptr;
 }
