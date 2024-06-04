@@ -55,9 +55,6 @@ class FixVirtualSemiGrandCanonicalMC : public Fix {
  private:
   int nevery, seed;
   int ncycles;
-  int niswap, njswap;                  // # of i,j swap atoms on all procs
-  int niswap_local, njswap_local;      // # of swap atoms on this proc
-  int niswap_before, njswap_before;    // # of swap atoms on procs < this proc
   int nswap;                           // # of swap atoms on all procs
   int nswap_local;                     // # of swap atoms on this proc
   int nswap_before;                    // # of swap atoms on procs < this proc

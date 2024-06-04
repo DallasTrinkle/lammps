@@ -491,68 +491,6 @@ void FixVirtualSemiGrandCanonicalMC::update_atoms_list()
   nswap_before -= nswap_local;
 }
 
-/* ----------------------------------------------------------------------
-   update the list of gas atoms
-------------------------------------------------------------------------- */
-
-void FixVirtualSemiGrandCanonicalMC::update_swap_atoms_list()
-{
-  int nlocal = atom->nlocal;
-  int *type = atom->type;
-  double **x = atom->x;
-
-  if (atom->nmax > atom_swap_nmax) {
-    memory->sfree(local_swap_iatom_list);
-    memory->sfree(local_swap_jatom_list);
-    atom_swap_nmax = atom->nmax;
-    local_swap_iatom_list =
-        (int *) memory->smalloc(atom_swap_nmax * sizeof(int), "MCSWAP:local_swap_iatom_list");
-    local_swap_jatom_list =
-        (int *) memory->smalloc(atom_swap_nmax * sizeof(int), "MCSWAP:local_swap_jatom_list");
-  }
-
-  niswap_local = 0;
-  njswap_local = 0;
-
-  if (region) {
-
-    for (int i = 0; i < nlocal; i++) {
-      if (region->match(x[i][0], x[i][1], x[i][2]) == 1) {
-        if (atom->mask[i] & groupbit) {
-          if (type[i] == type_list[0]) {
-            local_swap_iatom_list[niswap_local] = i;
-            niswap_local++;
-          } else if (type[i] == type_list[1]) {
-            local_swap_jatom_list[njswap_local] = i;
-            njswap_local++;
-          }
-        }
-      }
-    }
-
-  } else {
-    for (int i = 0; i < nlocal; i++) {
-      if (atom->mask[i] & groupbit) {
-        if (type[i] == type_list[0]) {
-          local_swap_iatom_list[niswap_local] = i;
-          niswap_local++;
-        } else if (type[i] == type_list[1]) {
-          local_swap_jatom_list[njswap_local] = i;
-          njswap_local++;
-        }
-      }
-    }
-  }
-
-  MPI_Allreduce(&niswap_local, &niswap, 1, MPI_INT, MPI_SUM, world);
-  MPI_Scan(&niswap_local, &niswap_before, 1, MPI_INT, MPI_SUM, world);
-  niswap_before -= niswap_local;
-
-  MPI_Allreduce(&njswap_local, &njswap, 1, MPI_INT, MPI_SUM, world);
-  MPI_Scan(&njswap_local, &njswap_before, 1, MPI_INT, MPI_SUM, world);
-  njswap_before -= njswap_local;
-}
-
 /* ---------------------------------------------------------------------- */
 
 int FixVirtualSemiGrandCanonicalMC::pack_forward_comm(int n, int *list, double *buf, int /*pbc_flag*/, int * /*pbc*/)
@@ -661,9 +599,6 @@ void FixVirtualSemiGrandCanonicalMC::restart(char *buf)
   random_unequal->reset(seed);
 
   next_reneighbor = (bigint) ubuf(list[n++]).i;
-
-  nswap_attempts = static_cast<int>(list[n++]);
-  nswap_successes = static_cast<int>(list[n++]);
 
   bigint ntimestep_restart = (bigint) ubuf(list[n++]).i;
   if (ntimestep_restart != update->ntimestep)
