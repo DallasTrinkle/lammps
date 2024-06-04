@@ -48,8 +48,12 @@ using namespace FixConst;
 
 /* ---------------------------------------------------------------------- */
 
-FixVirtualSemiGrandCanonicalMC::FixVirtualSemiGrandCanonicalMC(class LAMMPS_NS::LAMMPS *, int, char **) {
-    if (narg < 10) error->all(FLERR, "Illegal fix vsgcmc command");
+FixVirtualSemiGrandCanonicalMC::FixVirtualSemiGrandCanonicalMC(class LAMMPS_NS::LAMMPS *, int narg, char **arg) :
+        Fix(lmp, narg, arg), region(nullptr), idregion(nullptr), type_list(nullptr),
+        qtype(nullptr), local_swap_atom_list(nullptr), random_equal(nullptr),
+        random_unequal(nullptr), c_pe(nullptr)
+{
+  if (narg < 10) error->all(FLERR, "Illegal fix vsgcmc command");
 
   dynamic_group_allow = 1;
 
@@ -97,13 +101,9 @@ FixVirtualSemiGrandCanonicalMC::FixVirtualSemiGrandCanonicalMC(class LAMMPS_NS::
 
   mc_active = 0;
 
-  nswap_attempts = 0.0;
-  nswap_successes = 0.0;
 
   atom_swap_nmax = 0;
   local_swap_atom_list = nullptr;
-  local_swap_iatom_list = nullptr;
-  local_swap_jatom_list = nullptr;
 
   // set comm size needed by this Fix
 
@@ -119,8 +119,6 @@ FixVirtualSemiGrandCanonicalMC::~FixVirtualSemiGrandCanonicalMC()
 {
   memory->destroy(type_list);
   memory->destroy(qtype);
-  memory->destroy(local_swap_iatom_list);
-  memory->destroy(local_swap_jatom_list);
   memory->destroy(chemdifferences);
   memory->destroy(swapchem);
   memory->destroy(swapindex);
@@ -302,32 +300,23 @@ void FixVirtualSemiGrandCanonicalMC::pre_exchange()
 
   // attempt Ncycle atom swaps
 
-  int nsuccess = 0;
-  if (semi_grand_flag) {
-    update_semi_grand_atoms_list();
-    for (int i = 0; i < ncycles; i++) nsuccess += attempt_semi_grand();
-  } else {
-    update_swap_atoms_list();
-    for (int i = 0; i < ncycles; i++) nsuccess += attempt_swap();
-  }
+  update_atoms_list();
+  for (int i = 0; i < ncycles; i++) virtual_semi_grand();
 
-  // udpate MC stats
-
-  nswap_attempts += ncycles;
-  nswap_successes += nsuccess;
-
+  // update time counter
   next_reneighbor = update->ntimestep + nevery;
 
   mc_active = 0;
 }
 
 /* ----------------------------------------------------------------------
-   attempt a semd-grand swap of a single atom
-   compare before/after energy and accept/reject the swap
+   calculate a virtual semd-grand exchange of a single atom, store
+   exp ( -beta*dE )
+   in the appropriate average
    NOTE: atom charges are assumed equal and so are not updated
 ------------------------------------------------------------------------- */
 
-int FixVirtualSemiGrandCanonicalMC::attempt_semi_grand()
+void FixVirtualSemiGrandCanonicalMC::virtual_semi_grand()
 {
   if (nswap == 0) return 0;
 
@@ -382,7 +371,7 @@ int FixVirtualSemiGrandCanonicalMC::attempt_semi_grand()
   // swap accepted, return 1
 
   if (success_all) {
-    update_semi_grand_atoms_list();
+    update_atoms_list();
     energy_stored = energy_after;
 //    if (ke_flag) {
 //      if (i >= 0) {
@@ -401,94 +390,6 @@ int FixVirtualSemiGrandCanonicalMC::attempt_semi_grand()
 
   if (i >= 0) atom->type[i] = itype;
   if (force->kspace) force->kspace->qsum_qsq();
-
-  return 0;
-}
-
-/* ----------------------------------------------------------------------
-   attempt a swap of a pair of atoms
-   compare before/after energy and accept/reject the swap
-------------------------------------------------------------------------- */
-
-int FixVirtualSemiGrandCanonicalMC::attempt_swap()
-{
-  if ((niswap == 0) || (njswap == 0)) return 0;
-
-  // pre-swap energy
-
-  double energy_before = energy_stored;
-
-  // pick a random pair of atoms
-  // swap their properties
-
-  int i = pick_i_swap_atom();
-  int j = pick_j_swap_atom();
-  int itype = type_list[0];
-  int jtype = type_list[1];
-
-  if (i >= 0) {
-    atom->type[i] = jtype;
-    if (atom->q_flag) atom->q[i] = qtype[1];
-  }
-  if (j >= 0) {
-    atom->type[j] = itype;
-    if (atom->q_flag) atom->q[j] = qtype[0];
-  }
-
-  // if unequal_cutoffs, call comm->borders() and rebuild neighbor list
-  // else communicate ghost atoms
-  // call to comm->exchange() is a no-op but clears ghost atoms
-
-  if (unequal_cutoffs) {
-    if (domain->triclinic) domain->x2lamda(atom->nlocal);
-    domain->pbc();
-    comm->exchange();
-    comm->borders();
-    if (domain->triclinic) domain->lamda2x(atom->nlocal + atom->nghost);
-    if (modify->n_pre_neighbor) modify->pre_neighbor();
-    neighbor->build(1);
-  } else {
-    comm->forward_comm(this);
-  }
-
-  // post-swap energy
-
-  double energy_after = energy_full();
-
-  // swap accepted, return 1
-  // if ke_flag, rescale atom velocities
-
-  if (random_equal->uniform() < exp(beta * (energy_before - energy_after))) {
-    update_swap_atoms_list();
-//    if (ke_flag) {
-//      if (i >= 0) {
-//        atom->v[i][0] *= sqrt_mass_ratio[itype][jtype];
-//        atom->v[i][1] *= sqrt_mass_ratio[itype][jtype];
-//        atom->v[i][2] *= sqrt_mass_ratio[itype][jtype];
-//      }
-//      if (j >= 0) {
-//        atom->v[j][0] *= sqrt_mass_ratio[jtype][itype];
-//        atom->v[j][1] *= sqrt_mass_ratio[jtype][itype];
-//        atom->v[j][2] *= sqrt_mass_ratio[jtype][itype];
-//      }
-//    }
-    energy_stored = energy_after;
-    return 1;
-  }
-
-  // swap not accepted, return 0
-  // restore the swapped itype & jtype atoms
-  // do not need to re-call comm->borders() and rebuild neighbor list
-  //   since will be done on next cycle or in Verlet when this fix finishes
-
-  if (i >= 0) {
-    atom->type[i] = type_list[0];
-    if (atom->q_flag) atom->q[i] = qtype[0];
-  }
-  if (j >= 0) {
-    atom->type[j] = type_list[1];
-    if (atom->q_flag) atom->q[j] = qtype[1];
-  }
 
   return 0;
 }
@@ -539,40 +440,10 @@ int FixVirtualSemiGrandCanonicalMC::pick_semi_grand_atom()
 }
 
 /* ----------------------------------------------------------------------
-------------------------------------------------------------------------- */
-
-int FixVirtualSemiGrandCanonicalMC::pick_i_swap_atom()
-{
-  int i = -1;
-  int iwhichglobal = static_cast<int>(niswap * random_equal->uniform());
-  if ((iwhichglobal >= niswap_before) && (iwhichglobal < niswap_before + niswap_local)) {
-    int iwhichlocal = iwhichglobal - niswap_before;
-    i = local_swap_iatom_list[iwhichlocal];
-  }
-
-  return i;
-}
-
-/* ----------------------------------------------------------------------
-------------------------------------------------------------------------- */
-
-int FixVirtualSemiGrandCanonicalMC::pick_j_swap_atom()
-{
-  int j = -1;
-  int jwhichglobal = static_cast<int>(njswap * random_equal->uniform());
-  if ((jwhichglobal >= njswap_before) && (jwhichglobal < njswap_before + njswap_local)) {
-    int jwhichlocal = jwhichglobal - njswap_before;
-    j = local_swap_jatom_list[jwhichlocal];
-  }
-
-  return j;
-}
-
-/* ----------------------------------------------------------------------
    update the list of gas atoms
 ------------------------------------------------------------------------- */
 
-void FixVirtualSemiGrandCanonicalMC::update_semi_grand_atoms_list()
+void FixVirtualSemiGrandCanonicalMC::update_atoms_list()
 {
   int nlocal = atom->nlocal;
   double **x = atom->x;

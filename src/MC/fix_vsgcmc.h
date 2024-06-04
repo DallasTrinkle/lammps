@@ -74,19 +74,12 @@ class FixVirtualSemiGrandCanonicalMC : public Fix {
   int **swapchem;
   int **chemdifferences;
 
-  double *mu;
-
-  double nswap_attempts;
-  double nswap_successes;
-
   bool unequal_cutoffs;
 
   int atom_swap_nmax;
   double beta;
   double *qtype;
   double energy_stored;
-  int *local_swap_iatom_list;
-  int *local_swap_jatom_list;
   int *local_swap_atom_list;
 
   class RanPark *random_equal;
@@ -95,11 +88,10 @@ class FixVirtualSemiGrandCanonicalMC : public Fix {
   class Compute *c_pe;
 
   void options(int, char **);
-  int attempt_virtual_semi_grand();
+  void virtual_semi_grand();
   double energy_full();
   int pick_semi_grand_atom();
-  int pick_i_swap_atom();
-  int pick_j_swap_atom();
+  void update_atoms_list();
 };
 
 }    // namespace LAMMPS_NS
