@@ -48,7 +48,7 @@ using namespace FixConst;
 
 /* ---------------------------------------------------------------------- */
 
-FixVirtualSemiGrandCanonicalMC::FixVirtualSemiGrandCanonicalMC(class LAMMPS_NS::LAMMPS *, int narg, char **arg) :
+FixVirtualSemiGrandCanonicalMC::FixVirtualSemiGrandCanonicalMC(class LAMMPS_NS::LAMMPS *lmp, int narg, char **arg) :
         Fix(lmp, narg, arg), region(nullptr), idregion(nullptr), type_list(nullptr),
         qtype(nullptr), local_swap_atom_list(nullptr), c_pe(nullptr)
 {
@@ -203,6 +203,14 @@ void FixVirtualSemiGrandCanonicalMC::init()
       swapchem[j][i] = i;
       swapindex[j][i] = nchem;
       nchem++;
+    }
+  }
+
+  // write out which vectors correspond to which differences:
+  if (lmp->comm->me == 0) {
+    utils::logmesg(lmp, "Semigrand canonical Widom method: exp(-beta*dE( ))\n");
+    for (int n=0; n<nchempot; ++n) {
+      utils::logmesg(lmp, "fix {}: {} -> {}\n", n, chemdifferences[n][1], chemdifferences[n][0]);
     }
   }
 
