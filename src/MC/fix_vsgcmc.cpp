@@ -210,7 +210,9 @@ void FixVirtualSemiGrandCanonicalMC::init()
   if (lmp->comm->me == 0) {
     utils::logmesg(lmp, "Semigrand canonical Widom method: exp(-beta*dE( ))\n");
     for (int n=0; n<nchempot; ++n) {
-      utils::logmesg(lmp, "fix {}: {} -> {}\n", n, chemdifferences[n][1], chemdifferences[n][0]);
+      utils::logmesg(lmp, "fix {}: {} -> {}\n", n,
+                     type_list[chemdifferences[n][1]],
+                     type_list[chemdifferences[n][0]]);
     }
   }
 
