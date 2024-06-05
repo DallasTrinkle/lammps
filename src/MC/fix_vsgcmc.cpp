@@ -52,7 +52,7 @@ FixVirtualSemiGrandCanonicalMC::FixVirtualSemiGrandCanonicalMC(class LAMMPS_NS::
         Fix(lmp, narg, arg), region(nullptr), idregion(nullptr), type_list(nullptr),
         qtype(nullptr), local_swap_atom_list(nullptr), c_pe(nullptr)
 {
-  if (narg < 8) error->all(FLERR, "Illegal fix vsgcmc command");
+  if (narg < 8) error->all(FLERR, "Illegal fix vsgcmc command (insufficient options)");
 
   dynamic_group_allow = 1;
 
@@ -206,9 +206,9 @@ void FixVirtualSemiGrandCanonicalMC::init()
 
   // write out which vectors correspond to which differences:
   if (lmp->comm->me == 0) {
-    utils::logmesg(lmp, "Semigrand canonical Widom method: exp(-beta*dE( ))\n");
+    utils::logmesg(lmp, "Semigrand canonical Widom method fix {}: exp(-beta*dE( ))\n", id);
     for (int n=0; n<nchempot; ++n) {
-      utils::logmesg(lmp, "fix {}: {} -> {}\n", n,
+      utils::logmesg(lmp, "f_{}[{}]: {} -> {}\n", id, n+1,
                      type_list[chemdifferences[n][1]],
                      type_list[chemdifferences[n][0]]);
     }
