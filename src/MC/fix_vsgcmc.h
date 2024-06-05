@@ -52,8 +52,9 @@ class FixVirtualSemiGrandCanonicalMC : public Fix {
   void restart(char *) override;
 
  private:
-  int nevery, seed;
-  int ncycles;
+  int nevery;
+//  int seed;
+//  int ncycles;
   int nswap;                           // # of swap atoms on all procs
   int nswap_local;                     // # of swap atoms on this proc
   int nswap_before;                    // # of swap atoms on procs < this proc

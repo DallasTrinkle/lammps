@@ -70,10 +70,8 @@ FixVirtualSemiGrandCanonicalMC::FixVirtualSemiGrandCanonicalMC(class LAMMPS_NS::
 //  seed = utils::inumeric(FLERR, arg[5], false, lmp);
   double temperature = utils::numeric(FLERR, arg[4], false, lmp);
 
-  if (nevery <= 0) error->all(FLERR, "Illegal fix vsgcmc command");
-  if (ncycles < 0) error->all(FLERR, "Illegal fix vsgcmc command");
-  if (seed <= 0) error->all(FLERR, "Illegal fix vsgcmc command");
-  if (temperature <= 0.0) error->all(FLERR, "Illegal fix vsgcmc command");
+  if (nevery <= 0) error->all(FLERR, "Illegal fix vsgcmc command (bad nevery)");
+  if (temperature <= 0.0) error->all(FLERR, "Illegal fix vsgcmc command (bad temperature)");
 
   beta = 1.0 / (force->boltz * temperature);
 
@@ -121,24 +119,24 @@ FixVirtualSemiGrandCanonicalMC::~FixVirtualSemiGrandCanonicalMC()
 
 void FixVirtualSemiGrandCanonicalMC::options(int narg, char **arg)
 {
-  if (narg < 0) error->all(FLERR, "Illegal fix vsgcmc command");
+  if (narg < 0) error->all(FLERR, "Illegal fix vsgcmc command (need types)");
 
   nswaptypes = 0;
 
   int iarg = 0;
   while (iarg < narg) {
     if (strcmp(arg[iarg], "types") == 0) {
-      if (iarg + 3 > narg) error->all(FLERR, "Illegal fix vsgcmc command");
+      if (iarg + 3 > narg) error->all(FLERR, "Illegal fix vsgcmc command (insufficient types)");
       iarg++;
       while (iarg < narg) {
         if (isalpha(arg[iarg][0])) break;
-        if (nswaptypes >= atom->ntypes) error->all(FLERR, "Illegal fix vsgcmc command");
+        if (nswaptypes >= atom->ntypes) error->all(FLERR, "Illegal fix vsgcmc command (too many types listed)");
         type_list[nswaptypes] = utils::numeric(FLERR, arg[iarg], false, lmp);
         nswaptypes++;
         iarg++;
       }
     } else
-      error->all(FLERR, "Illegal fix vsgcmc command");
+      error->all(FLERR, "Illegal fix vsgcmc command (bad option)");
   }
 }
 
