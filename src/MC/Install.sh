@@ -57,6 +57,8 @@ action fix_sgcmc.cpp   pair_eam.cpp
 action fix_sgcmc.h     pair_eam.h
 action fix_tfmc.cpp
 action fix_tfmc.h
+action fix_vsgcmc.cpp
+action fix_vsgcmc.h
 action fix_widom.cpp
 action fix_widom.h
 action pair_dsmc.cpp
