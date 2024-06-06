@@ -304,15 +304,19 @@ void FixVirtualSemiGrandCanonicalMC::pre_exchange()
   neighbor->build(1);
 
   // energy_stored = energy of current state
-  // will be updated after accepted swaps
 
   energy_stored = energy_full();
 
-  // attempt all atom swaps
+  // attempt all atom swaps vitually
 
   update_atoms_list();
   // run through all of the atoms!
   for (int i = 0; i < nswap; i++) virtual_semi_grand(i);
+
+  // divide out the attempts to make them all averages:
+  for (int i=0; i<nchempot; ++i) {
+    if (nattempt[i] > 0) chempotave[i] /= nattempt[i];
+  }
 
   // update time counter
   next_reneighbor = update->ntimestep + nevery;
@@ -333,7 +337,7 @@ void FixVirtualSemiGrandCanonicalMC::virtual_semi_grand(int iglobal)
 
   double energy_before = energy_stored;
 
-  // pick a random atom and perform all transmutations on it
+  // pick the atom and perform all transmutations on it
 
   int itype, jtype, jswaptype, nchem, i_ind;
   int i = pick_semi_grand_atom(iglobal);
@@ -369,9 +373,9 @@ void FixVirtualSemiGrandCanonicalMC::virtual_semi_grand(int iglobal)
 
     // now to store in the appropriate average:
     nattempt[nchem]++;
-    double incr_chem_pot = exp(beta * (energy_before - energy_after)) - chempotave[nchem];
-    chempotave[nchem] += incr_chem_pot/nattempt[nchem];
-}
+    double incr_chem_pot = exp(beta * (energy_before - energy_after));
+    chempotave[nchem] += incr_chem_pot;
+  }
 
   // restore the swapped atom
   // do not need to re-call comm->borders() and rebuild neighbor list
@@ -417,7 +421,6 @@ double FixVirtualSemiGrandCanonicalMC::energy_full()
 int FixVirtualSemiGrandCanonicalMC::pick_semi_grand_atom(int iwhichglobal)
 {
   int i = -1;
-  // int iwhichglobal = static_cast<int>(nswap * random_equal->uniform());
   if ((iwhichglobal >= nswap_before) && (iwhichglobal < nswap_before + nswap_local)) {
     int iwhichlocal = iwhichglobal - nswap_before;
     i = local_swap_atom_list[iwhichlocal];
@@ -427,7 +430,7 @@ int FixVirtualSemiGrandCanonicalMC::pick_semi_grand_atom(int iwhichglobal)
 }
 
 /* ----------------------------------------------------------------------
-   update the list of gas atoms
+   update the list of atoms
 ------------------------------------------------------------------------- */
 
 void FixVirtualSemiGrandCanonicalMC::update_atoms_list()
@@ -528,7 +531,7 @@ void FixVirtualSemiGrandCanonicalMC::unpack_forward_comm(int n, int first, doubl
 }
 
 /* ----------------------------------------------------------------------
-  return acceptance ratio
+  return Widom semi-grand canonical averages
 ------------------------------------------------------------------------- */
 
 double FixVirtualSemiGrandCanonicalMC::compute_vector(int n)
@@ -543,7 +546,7 @@ double FixVirtualSemiGrandCanonicalMC::compute_vector(int n)
 
 double FixVirtualSemiGrandCanonicalMC::memory_usage()
 {
-  double bytes = (double) atom_swap_nmax * sizeof(int);
+  double bytes = (double) (nchempot * 3* sizeof(int) + nchempot * 2 *sizeof(double));
   return bytes;
 }
 

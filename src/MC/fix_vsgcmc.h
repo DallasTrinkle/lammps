@@ -21,7 +21,7 @@
  this quantity can be then related to the difference in the excess
  chemical potential between species B and A.
 
- 2024 June: Dallas R. Trinkle
+ 2024 June 6: Dallas R. Trinkle, initial implementation
  */
 
 #ifdef FIX_CLASS
@@ -53,8 +53,6 @@ class FixVirtualSemiGrandCanonicalMC : public Fix {
 
  private:
   int nevery;
-//  int seed;
-//  int ncycles;
   int nswap;                           // # of swap atoms on all procs
   int nswap_local;                     // # of swap atoms on this proc
   int nswap_before;                    // # of swap atoms on procs < this proc
