@@ -140,7 +140,13 @@ void FixVirtualSemiGrandCanonicalMC::options(int narg, char **arg)
 
   int iarg = 0;
   while (iarg < narg) {
-    if (strcmp(arg[iarg], "types") == 0) {
+    if (strcmp(arg[iarg], "region") == 0) {
+      if (iarg + 2 > narg) error->all(FLERR, "Illegal fix vsgcmc command");
+      region = domain->get_region_by_id(arg[iarg + 1]);
+      if (!region) error->all(FLERR, "Region {} for fix vsgcmc does not exist", arg[iarg + 1]);
+      idregion = utils::strdup(arg[iarg + 1]);
+      iarg += 2;
+    } else if (strcmp(arg[iarg], "types") == 0) {
       if (iarg + 3 > narg) utils::missing_cmd_args(FLERR, "fix vsgcmc types", error);
       iarg++;
       while (iarg < narg) {
