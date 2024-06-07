@@ -259,6 +259,7 @@ OPT.
    * :doc:`viscosity <fix_viscosity>`
    * :doc:`viscous (k) <fix_viscous>`
    * :doc:`viscous/sphere <fix_viscous_sphere>`
+   * :doc:`vsgcmc <fix_vsgcmc>`
    * :doc:`wall/body/polygon <fix_wall_body_polygon>`
    * :doc:`wall/body/polyhedron <fix_wall_body_polyhedron>`
    * :doc:`wall/colloid <fix_wall>`

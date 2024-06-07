@@ -1512,6 +1512,7 @@ conjunction with molecular dynamics (MD).
 * :doc:`fix gcmc <fix_gcmc>`
 * :doc:`fix sgcmc <fix_sgcmc>`
 * :doc:`fix tfmc <fix_tfmc>`
+* :doc:`fix vsgcmc <fix_vsgcmc>`
 * :doc:`fix widom <fix_widom>`
 * :doc:`pair_style dsmc <pair_dsmc>`
 * https://www.lammps.org/movies.html#gcmc
