@@ -67,7 +67,7 @@ FixVirtualSemiGrandCanonicalMC::FixVirtualSemiGrandCanonicalMC(class LAMMPS_NS::
 {
   if (lmp->citeme) lmp->citeme->add(cite_fix_vsgcmc);
 
-  if (narg < 8) error->all(FLERR, "Illegal fix vsgcmc command (insufficient options)");
+  if (narg < 8) utils::missing_cmd_args(FLERR, "fix vsgcmc", error);
 
   dynamic_group_allow = 1;
 
@@ -134,14 +134,14 @@ FixVirtualSemiGrandCanonicalMC::~FixVirtualSemiGrandCanonicalMC()
 
 void FixVirtualSemiGrandCanonicalMC::options(int narg, char **arg)
 {
-  if (narg < 0) error->all(FLERR, "Illegal fix vsgcmc command (need types)");
+  if (narg < 0) utils::missing_cmd_args(FLERR, "fix vsgcmc", error);
 
   nswaptypes = 0;
 
   int iarg = 0;
   while (iarg < narg) {
     if (strcmp(arg[iarg], "types") == 0) {
-      if (iarg + 3 > narg) error->all(FLERR, "Illegal fix vsgcmc command (insufficient types)");
+      if (iarg + 3 > narg) utils::missing_cmd_args(FLERR, "fix vsgcmc types", error);
       iarg++;
       while (iarg < narg) {
         if (isalpha(arg[iarg][0])) break;
