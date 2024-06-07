@@ -46,12 +46,27 @@
 using namespace LAMMPS_NS;
 using namespace FixConst;
 
+static const char cite_fix_vsgcmc[] =
+        "fix vsgcmc method: doi:10.1016/0009-2614(87)87294-9\n\n"
+        "@article{SINDZINGRE198735,\n"
+        "title = {Partial enthalpies and related quantities in mixtures from computer simulation},\n"
+        "author = {P. Sindzingre and G. Ciccotti and C. Massobrio and D. Frenkel},\n"
+        "journal = {Chem. Phys. Lett.},\n"
+        "volume = 136,\n"
+        "number = 1,\n"
+        "pages = {35-41},\n"
+        "year = 1987,\n"
+        "doi = {https://doi.org/10.1016/0009-2614(87)87294-9},\n"
+        "}\n\n";
+
 /* ---------------------------------------------------------------------- */
 
 FixVirtualSemiGrandCanonicalMC::FixVirtualSemiGrandCanonicalMC(class LAMMPS_NS::LAMMPS *lmp, int narg, char **arg) :
         Fix(lmp, narg, arg), region(nullptr), idregion(nullptr), type_list(nullptr),
         qtype(nullptr), local_swap_atom_list(nullptr), c_pe(nullptr)
 {
+  if (lmp->citeme) lmp->citeme->add(cite_fix_vsgcmc);
+
   if (narg < 8) error->all(FLERR, "Illegal fix vsgcmc command (insufficient options)");
 
   dynamic_group_allow = 1;
@@ -206,9 +221,9 @@ void FixVirtualSemiGrandCanonicalMC::init()
 
   // write out which vectors correspond to which differences:
   if (lmp->comm->me == 0) {
-    utils::logmesg(lmp, "Semigrand canonical Widom method fix {}: exp(-beta*dE( ))\n", id);
+    utils::logmesg(lmp, "  vsgcmc semi-grand canonical Widom method fix {}: exp(-beta*dE( ))\n", id);
     for (int n=0; n<nchempot; ++n) {
-      utils::logmesg(lmp, "f_{}[{}]: {} -> {}\n", id, n+1,
+      utils::logmesg(lmp, "    f_{}[{}]: {} -> {}\n", id, n+1,
                      type_list[chemdifferences[n][1]],
                      type_list[chemdifferences[n][0]]);
     }
