@@ -444,6 +444,7 @@ accelerated styles exist.
 * :doc:`wall/region/ees <fix_wall_ees>` - use region surface as wall for ellipsoidal particles
 * :doc:`wall/srd <fix_wall_srd>` - slip/no-slip wall for SRD particles
 * :doc:`wall/table <fix_wall>` - Tabulated potential wall wall
+* :doc:`vsgcmc <fix_vsgcmc>` - Widom transmutations of atoms (virtual semigrand canonical MC)
 * :doc:`widom <fix_widom>` - Widom insertions of atoms or molecules
 
 Restrictions
