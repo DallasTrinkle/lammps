@@ -1,27 +1,27 @@
 .. index:: fix vsgcmc
 
 fix vsgcmc command
-=================
+==================
 
 Syntax
 """"""
 
 .. code-block:: LAMMPS
 
-   fix ID group-ID widom N T keyword values ...
+   fix ID group-ID vsgcmc N T keyword values ...
 
 * ID, group-ID are documented in :doc:`fix <fix>` command
 * vsgcmc = style name of this fix command
 * N = invoke this fix every N steps
 * T = temperature of the system (temperature units)
-* keyword = *region* or *types*
+* keyword = *types* or *region*
 
   .. parsed-literal::
 
-     keyword = *types*
+     keyword = *types* or *region*
        *types* values = two or more atom types for transmutations (required)
        *region* value = region-ID
-         region-ID = ID of region to use as an exchange/move volume
+         region-ID = ID of region to use as a transmutation volume
 
 Examples
 """"""""
@@ -42,15 +42,15 @@ temperature as discussed in :ref:`(Sindzingre) <Sindzingre1>`, and used in
 chemical potential difference between two (or more) chemical species.
 
 
-Every N timesteps the fix sweeps through all atoms in the group (or region)
-of the identified types, and computes the energy change from transmuting to
-all of the other types. For every transmutation of type A into B, the
-average
+Every N timesteps the fix sweeps through all atoms in the group (or region);
+for each atom of an identified type, it transmutes it into each of the other
+types, recording the energy difference. The Boltzmann factor of energy
+change is averaged, and reported.
 
 The *types* keyword is required. At least two atom types must be
 specified.
 
-This command may optionally use the *region* keyword to define exchanging
+This command may optionally use the *region* keyword to define transmuting
 volume.  The specified region must have been previously defined with a
 :doc:`region <region>` command.  It must be defined with side = *in*\ .
 Only atoms in the specified region are transmuted.
@@ -65,11 +65,28 @@ The difference in excess chemical potential dmu_ex is defined as:
 
 .. math::
 
-   \delta\mu_{ex} = \mu_{ex,B} - \mu_{ex,A} = -kT \ln(<\exp(-U(A-B+)/{k_B T}>)
+   \delta\mu_{ex} = \mu_{ex,B} - \mu_{ex,A} = -kT \ln(<\exp(-\Delta U(A-B+)/{k_B T}>)
 
 where :math:`k_B` is the Boltzmann constant, :math:`T` is the
-user-specified temperature, :math:`U(A-B+)` is the potential energy
+user-specified temperature, :math:`\Delta U(A-B+)` is the potential energy
 change from transmuting one atom of type A into type B.
+
+This fix computes a global vector of length Ntypes*(Ntypes-1), which can
+be accessed by various :doc:`output commands <Howto_output>`.  The vector
+values are the following quantities, recomputed every N steps:
+
+* 1 = :math:`<\exp(-\Delta U(t_1\to t_2)/{k T}>)`
+* 2 = :math:`<\exp(-\Delta U(t_2\to t_1)/{k T}>)`
+* 3 = :math:`<\exp(-\Delta U(t_1\to t_3)/{k T}>)`
+* 4 = :math:`<\exp(-\Delta U(t_3\to t_1)/{k T}>)`
+* ...
+* Ntypes*(Ntypes-1)-1 = :math:`<\exp(-\Delta U(t_{Ntypes-1}\to t_{Ntypes})/{k T}>)`
+* Ntypes*(Ntypes-1) = :math:`<\exp(-\Delta U(t_{Ntypes}\to t_{Ntypes-1})/{k T}>)`
+
+following the order of the types listed with the *types* keyword
+The vector values calculated by this fix are "intensive". When this fix
+is initialized, the indices and their corresponding transmutation pairs
+are written to the logfile.
 
 Some fixes have an associated potential energy. Examples of such fixes
 include: :doc:`efield <fix_efield>`, :doc:`gravity <fix_gravity>`,
@@ -98,22 +115,6 @@ file, so that the operation of the fix continues in an uninterrupted fashion.
 
 None of the :doc:`fix_modify <fix_modify>` options are relevant to this
 fix.
-
-This fix computes a global vector of length Ntypes*(Ntypes-1), which can
-be accessed by various :doc:`output commands <Howto_output>`.  The vector
-values are the following quantities, recomputed every N steps:
-
-* 1 = :math:`<\exp(-U(t_1\to t_2)/{k_B T}>)`
-* 2 = :math:`<\exp(-U(t_2\to t_1)/{k_B T}>)`
-* 3 = :math:`<\exp(-U(t_1\to t_3)/{k_B T}>)`
-* 4 = :math:`<\exp(-U(t_3\to t_1)/{k_B T}>)`
-* ...
-* Ntypes*(Ntypes-1)-1 = :math:`<\exp(-U(c_(Ntypes-1)\to c_(Ntypes))/{k_B T}>)`
-* Ntypes*(Ntypes-1) = :math:`<\exp(-U(c_(Ntypes)\to c_(Ntypes-1))/{k_B T}>)`
-
-following the order of the types listed with the *types* keyword
-The vector values calculated by this fix are "intensive". When this fix
-is initialized, these differences are output to the logfile.
 
 No parameter of this fix can be used with the *start/stop* keywords of
 the :doc:`run <run>` command.  This fix is not invoked during
@@ -155,12 +156,10 @@ There are no defaults.
 
 **(Sindzingre)** P. Sindzingre, G. Ciccotti, C. Massobrio, and D. Frenkel,
 "Partial enthalpies and related quantities in mixtures from computer simulation."
-*Chem. Phys. Lett.* **136**, 35-41 (1987).
-doi:10.1016/0009-2614(87)87294-9
+*Chem. Phys. Lett.* **136**, 35-41 (1987). doi:10.1016/0009-2614(87)87294-9
 
 .. _Anwar1:
 
 **(Anwar)** J. Anwar, C. Leitold and B. Peters,
-"Solid–solid phase equilibria in the NaCl–KCl system."
-*J. Chem. Phys.* **152**, 144109 (2020).
-doi: 10.1063/5.0003224
+"Solid-solid phase equilibria in the NaCl-KCl system."
+*J. Chem. Phys.* **152**, 144109 (2020). doi: 10.1063/5.0003224
