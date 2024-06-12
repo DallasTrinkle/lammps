@@ -20,6 +20,7 @@
 #include "angle.h"
 #include "atom.h"
 #include "bond.h"
+#include "citeme.h"
 #include "comm.h"
 #include "compute.h"
 #include "dihedral.h"
@@ -106,6 +107,66 @@ FixVirtualSemiGrandCanonicalMC::FixVirtualSemiGrandCanonicalMC(class LAMMPS_NS::
   atom_swap_nmax = 0;
   local_swap_atom_list = nullptr;
 
+  int *type = atom->type;
+
+  if (nswaptypes < 2) error->all(FLERR, "Must specify at least 2 types in fix vsgcmc command");
+
+  for (int iswaptype = 0; iswaptype < nswaptypes; iswaptype++)
+    if (type_list[iswaptype] <= 0 || type_list[iswaptype] > atom->ntypes)
+      error->all(FLERR, "Invalid atom type in fix vsgcmc command");
+
+  memory->create(list_type, atom->ntypes+1, "vsgmcm:list_type");
+  for (int i=0; i<=atom->ntypes; ++i)
+    list_type[i] = 0;
+  for (int i=0; i<nswaptypes; ++i) {
+    list_type[type_list[i]] = i;
+  }
+
+  // now we need to set up some helper arrays to keep track of what we swap, etc.
+  // our chemical potential differences are:
+  // type[1]-type[0], type[2]-type[0], ..., type[nswap-1]-type[0], type[2]-type[1], ...
+  // ... type[nswap-1]-type[nswap-2]
+  // For type[1]-type[0], we need exp(-beta*dE(0->1)) and exp(+beta*dE(1->0)),
+  // but we have to keep those two averages separate.
+  // swapchem[i]: list of indices to calculate swaps = (0,1,...,i-1,i+1,...,N-1)
+  // swapindex[i]: list of which chemical potential difference that is
+  // chemdifferences[d]: [0] is the + and [1] is the - (A-B+ == A->B)
+  nchempot = (nswaptypes*(nswaptypes-1));
+  memory->create(swapchem, nswaptypes, nswaptypes-1, "vsgcmc:swapchem");
+  memory->create(swapindex, nswaptypes, nswaptypes-1, "vsgcmc:swapindex");
+  memory->create(chemdifferences, nchempot, 2, "vsgcmc:chemdifferences");
+
+  int nchem = 0;
+  for (int i=0; i<nswaptypes; ++i) {
+    int t_i = type_list[i];
+    for (int j=i+1; j<nswaptypes; ++j) {
+      int t_j = type_list[j];
+      chemdifferences[nchem][0] = t_j;
+      chemdifferences[nchem][1] = t_i;
+      swapchem[i][j-1] = t_j;
+      swapindex[i][j-1] = nchem;
+      nchem++;
+      chemdifferences[nchem][0] = t_i;
+      chemdifferences[nchem][1] = t_j;
+      swapchem[j][i] = t_i;
+      swapindex[j][i] = nchem;
+      nchem++;
+    }
+  }
+
+  // write out which vectors correspond to which differences:
+  if (lmp->comm->me == 0) {
+    utils::logmesg(lmp, "  vsgcmc semi-grand canonical Widom method fix {} vectors: exp(-beta*dE( ))\n", id);
+    for (int n=0; n<nchempot; ++n) {
+      utils::logmesg(lmp, "    f_{}[{}]: {} -> {}\n", id, n+1,
+                     chemdifferences[n][1],
+                     chemdifferences[n][0]);
+    }
+  }
+
+  memory->create(nattempt, nchempot, "vsgcmc:nattempt");
+  memory->create(chempotave, nchempot, "vsgcmc:chempotave");
+
   // set comm size needed by this Fix
 
   if (atom->q_flag)
@@ -181,62 +242,6 @@ void FixVirtualSemiGrandCanonicalMC::init()
   c_pe = modify->get_compute_by_id("thermo_pe");
 
   int *type = atom->type;
-
-  if (nswaptypes < 2) error->all(FLERR, "Must specify at least 2 types in fix vsgcmc command");
-
-  for (int iswaptype = 0; iswaptype < nswaptypes; iswaptype++)
-    if (type_list[iswaptype] <= 0 || type_list[iswaptype] > atom->ntypes)
-      error->all(FLERR, "Invalid atom type in fix vsgcmc command");
-
-  memory->create(list_type, atom->ntypes+1, "vsgmcm:list_type");
-  for (int i=0; i<=atom->ntypes; ++i)
-      list_type[i] = 0;
-  for (int i=0; i<nswaptypes; ++i) {
-      list_type[type_list[i]] = i;
-  }
-
-  // now we need to set up some helper arrays to keep track of what we swap, etc.
-  // our chemical potential differences are:
-  // type[1]-type[0], type[2]-type[0], ..., type[nswap-1]-type[0], type[2]-type[1], ...
-  // ... type[nswap-1]-type[nswap-2]
-  // For type[1]-type[0], we need exp(-beta*dE(0->1)) and exp(+beta*dE(1->0)),
-  // but we have to keep those two averages separate.
-  // swapchem[i]: list of indices to calculate swaps = (0,1,...,i-1,i+1,...,N-1)
-  // swapindex[i]: list of which chemical potential difference that is
-  // chemdifferences[d]: [0] is the + and [1] is the - (A-B+ == A->B)
-  nchempot = (nswaptypes*(nswaptypes-1));
-  memory->create(swapchem, nswaptypes, nswaptypes-1, "vsgcmc:swapchem");
-  memory->create(swapindex, nswaptypes, nswaptypes-1, "vsgcmc:swapindex");
-  memory->create(chemdifferences, nchempot, 2, "vsgcmc:chemdifferences");
-
-  int nchem = 0;
-  for (int i=0; i<nswaptypes; ++i) {
-    for (int j=i+1; j<nswaptypes; ++j) {
-      chemdifferences[nchem][0] = j;
-      chemdifferences[nchem][1] = i;
-      swapchem[i][j-1] = j;
-      swapindex[i][j-1] = nchem;
-      nchem++;
-      chemdifferences[nchem][0] = i;
-      chemdifferences[nchem][1] = j;
-      swapchem[j][i] = i;
-      swapindex[j][i] = nchem;
-      nchem++;
-    }
-  }
-
-  // write out which vectors correspond to which differences:
-  if (lmp->comm->me == 0) {
-    utils::logmesg(lmp, "  vsgcmc semi-grand canonical Widom method fix {}: exp(-beta*dE( ))\n", id);
-    for (int n=0; n<nchempot; ++n) {
-      utils::logmesg(lmp, "    f_{}[{}]: {} -> {}\n", id, n+1,
-                     type_list[chemdifferences[n][1]],
-                     type_list[chemdifferences[n][0]]);
-    }
-  }
-
-  memory->create(nattempt, nchempot, "vsgcmc:nattempt");
-  memory->create(chempotave, nchempot, "vsgcmc:chempotave");
 
   // this is only required for non-semi-grand
   // in which case, nswaptypes = 2
@@ -364,7 +369,7 @@ void FixVirtualSemiGrandCanonicalMC::virtual_semi_grand(int iglobal)
   int i = pick_semi_grand_atom(iglobal);
   if (i >= 0) {
       itype = atom->type[i];
-      i_ind = list_type[itype];
+      i_ind = list_type[itype]; // need to get the indices into the lists for this type
   }
 
   // if unequal_cutoffs, call comm->borders() and rebuild neighbor list
@@ -372,7 +377,7 @@ void FixVirtualSemiGrandCanonicalMC::virtual_semi_grand(int iglobal)
   // call to comm->exchange() is a no-op but clears ghost atoms
   for (int j_ind=0; j_ind<nswaptypes-1; ++j_ind) {
     if (i >= 0) {
-      jswaptype = type_list[swapchem[i_ind][j_ind]];
+      jswaptype = swapchem[i_ind][j_ind];
       nchem = swapindex[i_ind][j_ind];
       atom->type[i] = jswaptype;
     }
