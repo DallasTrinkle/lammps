@@ -37,10 +37,9 @@ Description
 
 This fix performs semi-grand canonical Widom method (or virtual semi-grand
 canonical Monte Carlo) exchange of atomic types at the given
-temperature as discussed in :ref:`(Sindzingre) <Sindzingre1>`, and used in
-:ref:`(Anwar) <Anwar1>`. This allows the computation of the excess
+temperature as derived in :ref:`(Sindzingre) <Sindzingre1>`, and further
+described in :ref:`(Anwar) <Anwar1>`. This allows the computation of the excess
 chemical potential difference between two (or more) chemical species.
-
 
 Every N timesteps the fix sweeps through all atoms in the group (or region);
 for each atom of an identified type, it transmutes it into each of the other
@@ -84,9 +83,9 @@ values are the following quantities, recomputed every N steps:
 * Ntypes*(Ntypes-1) = :math:`<\exp(-\Delta U(t_{Ntypes}\to t_{Ntypes-1})/{k T}>)`
 
 following the order of the types listed with the *types* keyword
-The vector values calculated by this fix are "intensive". When this fix
-is initialized, the indices and their corresponding transmutation pairs
-are written to the logfile.
+The vector values calculated by this fix are "intensive". When this fix is initialized,
+the indices and their corresponding transmutation pairs are written to the logfile.
+Each time the fix is called, the averages are computed over all atoms of each type.
 
 Some fixes have an associated potential energy. Examples of such fixes
 include: :doc:`efield <fix_efield>`, :doc:`gravity <fix_gravity>`,
