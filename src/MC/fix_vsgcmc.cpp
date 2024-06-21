@@ -72,8 +72,7 @@ FixVirtualSemiGrandCanonicalMC::FixVirtualSemiGrandCanonicalMC(class LAMMPS_NS::
 
   dynamic_group_allow = 1;
 
-  vector_flag = 1;
-  size_vector = 2;
+  vector_flag = 1;  // see below for size_vector calculation
   global_freq = 1;
   extvector = 0;
   restart_global = 1;
@@ -166,6 +165,8 @@ FixVirtualSemiGrandCanonicalMC::FixVirtualSemiGrandCanonicalMC(class LAMMPS_NS::
 
   memory->create(nattempt, nchempot, "vsgcmc:nattempt");
   memory->create(chempotave, nchempot, "vsgcmc:chempotave");
+
+  size_vector = nchempot;  // this is how large the vector we're computing is
 
   // set comm size needed by this Fix
 
@@ -562,6 +563,7 @@ void FixVirtualSemiGrandCanonicalMC::unpack_forward_comm(int n, int first, doubl
 
 double FixVirtualSemiGrandCanonicalMC::compute_vector(int n)
 {
+  // not sure this range checking is completely necessary, but included
   if ((n >= 0) && (n < nchempot)) return chempotave[n];
   return 0.0;
 }
